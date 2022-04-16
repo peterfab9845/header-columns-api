@@ -175,7 +175,7 @@ var HeaderColumns = class extends ExtensionCommon.ExtensionAPI {
 
 function paint(win) {
   win.CustomColumns = {};
-  Services.scriptloader.loadSubScript(extension.getURL("api/HeaderColumns/customcol.js"), win.CustomColumns);
+  Services.scriptloader.loadSubScript(extension.getURL("api/header-columns-api/customcol.js"), win.CustomColumns);
   win.CustomColumns.managedColumns = managedColumns;
   win.CustomColumns.CustomColumnsView.init(win);
 }

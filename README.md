@@ -5,15 +5,15 @@ The content of these columns is produced based on user-configured headers with p
 
 ## Installation
 
-Copy the `api/HeaderColumns` directory to your extension, and add the following snippet to the `experiment_apis` section of your extension manifest:
+Include the repository within your extension's `api` folder, and add the following snippet to the `experiment_apis` section of your extension manifest:
 
 ```json
 "HeaderColumns": {
-  "schema": "api/HeaderColumns/schema.json",
+  "schema": "api/header-columns-api/schema.json",
   "parent": {
     "scopes": ["addon_parent"],
     "paths": [["HeaderColumns"]],
-    "script": "api/HeaderColumns/implementation.js",
+    "script": "api/header-columns-api/implementation.js",
     "events": ["startup"]
   }
 }
