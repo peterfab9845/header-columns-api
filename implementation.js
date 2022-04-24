@@ -7,18 +7,29 @@
   var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
   var { ExtensionSupport } = ChromeUtils.import('resource:///modules/ExtensionSupport.jsm');
 
-  const MSG_VIEW_FLAG_DUMMY = 0x20000000; // from DBViewWrapper.jsm
+  class ColumnHandler {
+    const MSG_VIEW_FLAG_DUMMY = 0x20000000; // from DBViewWrapper.jsm
 
-  // Construct a column handler for the given header name
-  function ColumnHandler(parseTree, sortNumeric) {
+    constructor(parseTree, sortNumeric) {
+      this.parseTree = parseTree;
+      this.sortNumeric = sortNumeric;
+    }
+
+    // Access to the window object
+    init(win) {
+      this.win = win;
+    }
+
     // Required (?) custom column handler functions are according to
     // https://searchfox.org/comm-central/source/mailnews/base/public/nsIMsgCustomColumnHandler.idl
     // Not sure if the requirement is up to date on what actually gets called,
     // but it seems to work fine without some of the "required" ones anyway.
 
     // Required functions directly from nsIMsgCustomColumnHandler
-    this.getSortStringForRow = function(aHdr) { return this.getText(aHdr); };
-    this.getSortLongForRow = function(aHdr) {
+    getSortStringForRow(aHdr) {
+      return this.getText(aHdr);
+    }
+    getSortLongForRow(aHdr) {
       // Map float to long, preserving order. This takes advantage of the fact
       // that the binary value of least significant 31 bits of an IEEE-754 float
       // has an ordered correspondence with the absolute magnitude of the number.
@@ -54,30 +65,33 @@
       // this with 0x80000000 to set the MSB to 1 unconditionally. Finally, XOR
       // the resulting mask with the original value to do #1 and #2 simultaneously.
       return bits ^ ((bits >> 31) | (1 << 31));
-    };
-    this.isString = function() { return !sortNumeric; };
+    }
+    isString() {
+      return !sortNumeric;
+    }
 
     // Required functions inherited from nsITreeView
-    this.getRowProperties = function(index) { return ""; };
-    this.getCellProperties = function(row, col) { return ""; };
-    this.getImageSrc = function(row, col) { return ""; };
-    this.getCellText = function(row, col) {
+    getRowProperties(index) { return ""; }
+    getCellProperties(row, col) { return ""; }
+    getImageSrc(row, col) { return ""; }
+    getCellText(row, col) {
       if (!this.isDummy(row)) {
         return this.getText(this.win.gDBView.getMsgHdrAt(row));
       } else {
         return "";
       }
-    };
-    this.cycleCell = function(row, col) {};
-    this.isEditable = function(row, col) { return false; };
+    }
+    cycleCell(row, col) {}
+    isEditable(row, col) { return false; }
 
     // Local functions, not called by Thunderbird
-    this.init = function(win) { this.win = win; };
-    this.isDummy = function(row) { return (this.win.gDBView.getFlagsAt(row) & MSG_VIEW_FLAG_DUMMY) != 0; };
-    this.getText = function(aHdr) {
+    isDummy(row) {
+      return (this.win.gDBView.getFlagsAt(row) & MSG_VIEW_FLAG_DUMMY) != 0;
+    }
+    getText(aHdr) {
       return this.parse(parseTree, aHdr);
-    };
-    this.parse = function(node, aHdr) {
+    }
+    parse(node, aHdr) {
       // Recursively parse the tree to create the column content.
       switch (node.nodeType) {
         case "literal":
