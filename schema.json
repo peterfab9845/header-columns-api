@@ -120,13 +120,6 @@
     ],
     "functions": [
       {
-        "name": "addWindowListener",
-        "type": "function",
-        "description": "Adds a listener for 3pane windows",
-        "async": false,
-        "parameters": []
-      },
-      {
         "name": "registerColumn",
         "type": "function",
         "description": "Registers a custom column",

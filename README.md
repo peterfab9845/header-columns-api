@@ -36,12 +36,6 @@ If `sortNumeric` is true, the column will be sorted based on the numeric value o
 Removes the column with the given ID.
 It is not necessary to unregister a column before registering a replacement with the same ID.
 
-**addWindowListener()**
-
-Adds a window listener to manipulate the tree view.
-Should only be called once.
-Recommended to call when your extension starts, but may be called at any point before or after registering columns.
-
 ### Parsing Tree
 
 The parse tree is a structure composed of nodes of the types listed below.
