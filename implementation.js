@@ -137,12 +137,13 @@
     // experiment) upon first experiment use, independent of calling contexts.
     // The corresponding instance cleanup function is onShutdown().
     constructor(...args) {
-      // Note: super() sets our this.experiment member to the extension.
+      // Note: super() sets our this.extension member to the extension.
       super(...args);
 
       ExtensionSupport.registerWindowListener(
         `header-columns-${this.extension.uuid}-${this.extension.instanceId}`,
         {
+          extension: this.extension, // TODO ugly, use a class containing the functions instead
           chromeURLs: [
             "chrome://messenger/content/messenger.xul",
             "chrome://messenger/content/messenger.xhtml"
@@ -151,7 +152,7 @@
             // FIXME this setup all overwrites an existing CustomColumns object if multiple instances of the API exist
             // keep only one loaded somehow?
             win.CustomColumns = {};
-            Services.scriptloader.loadSubScript(context.extension.getURL("api/header-columns-api/customcol.js"), win.CustomColumns);
+            Services.scriptloader.loadSubScript(this.extension.getURL("api/header-columns-api/customcol.js"), win.CustomColumns);
             win.CustomColumns.managedColumns = managedColumns;
             win.CustomColumns.CustomColumnsView.init(win);
           },
