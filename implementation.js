@@ -65,7 +65,7 @@
       return bits ^ ((bits >> 31) | (1 << 31));
     }
     isString() {
-      return !sortNumeric;
+      return !this.sortNumeric;
     }
 
     // Required functions inherited from nsITreeView
@@ -88,7 +88,7 @@
       return (this.win.gDBView.getFlagsAt(row) & MSG_VIEW_FLAG_DUMMY) != 0;
     }
     getText(aHdr) {
-      return this.parse(parseTree, aHdr);
+      return this.parse(this.parseTree, aHdr);
     }
     parse(node, aHdr) {
       // Recursively parse the tree to create the column content.
