@@ -8,8 +8,6 @@
   var { ExtensionSupport } = ChromeUtils.import('resource:///modules/ExtensionSupport.jsm');
 
   class ColumnHandler {
-    const MSG_VIEW_FLAG_DUMMY = 0x20000000; // from DBViewWrapper.jsm
-
     constructor(parseTree, sortNumeric) {
       this.parseTree = parseTree;
       this.sortNumeric = sortNumeric;
@@ -86,6 +84,7 @@
 
     // Local functions, not called by Thunderbird
     isDummy(row) {
+      const MSG_VIEW_FLAG_DUMMY = 0x20000000; // from DBViewWrapper.jsm
       return (this.win.gDBView.getFlagsAt(row) & MSG_VIEW_FLAG_DUMMY) != 0;
     }
     getText(aHdr) {
@@ -128,12 +127,12 @@
     }
   }
 
-  class HeaderColumns extends ExtensionCommon.ExtensionAPI {
-    // List of columns managed by this instance of the experiment, passed
-    // directly to the customcol js. To update a column, change it in the map
-    // here and then notify customcols to reread the map.
-    const managedColumns = new Map();
+  // List of columns managed by this instance of the experiment, passed
+  // directly to the customcol js. To update a column, change it in the map
+  // here and then notify customcols to reread the map.
+  const managedColumns = new Map();
 
+  class HeaderColumns extends ExtensionCommon.ExtensionAPI {
     // Construct an instance of our experiment; called once (per addon using the
     // experiment) upon first experiment use, independent of calling contexts.
     // The corresponding instance cleanup function is onShutdown().
