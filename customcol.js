@@ -39,7 +39,7 @@ const columnOverlay = {
   },
 
   // Add a column element to the tree. This is just the visual element, the
-  // handlers are added in observe().
+  // handlers are added in registerHandlers().
   addColumn(columnId, columnLabel, columnTooltip) {
     // remove an old column if it already exists
     this.destroyColumn(columnId);
