@@ -195,9 +195,9 @@
             Services.obs.notifyObservers(null, "CustomColumns:column-updated", id);
           }
         }
-      }
+      };
     }
-  };
+  }
 
   exports.HeaderColumns = HeaderColumns;
 })(this);
