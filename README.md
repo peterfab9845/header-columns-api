@@ -108,5 +108,7 @@ This API does not manage this preference; for this purpose, it is currently reco
 
 ## Credits
 
-This API is based on the source of [Full address column](https://github.com/lkosson/full-address-column/) by Łukasz Kosson, which in turn is based on [Sender Frequency](https://addons.thunderbird.net/en-us/thunderbird/addon/sender-frequency/) by Jörg Knobloch.
+* [Full address column](https://github.com/lkosson/full-address-column/) by Łukasz Kosson
+* [Sender Frequency](https://addons.thunderbird.net/en-us/thunderbird/addon/sender-frequency/) by Jörg Knobloch
+* [LegacyCSS](https://github.com/thundernest/addon-developer-support/tree/master/auxiliary-apis/LegacyCSS) by John Bieling
 
