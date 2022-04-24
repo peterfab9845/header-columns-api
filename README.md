@@ -13,8 +13,7 @@ Include the repository within your extension's `api` folder, and add the followi
   "parent": {
     "scopes": ["addon_parent"],
     "paths": [["HeaderColumns"]],
-    "script": "api/header-columns-api/implementation.js",
-    "events": ["startup"]
+    "script": "api/header-columns-api/implementation.js"
   }
 }
 ```

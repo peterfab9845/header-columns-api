@@ -166,14 +166,6 @@
       );
     }
 
-    // Using the startup event causes our experiment to be instantiated on
-    // extension load instead of on first use.
-    onStartup() {
-      // TODO possibly remove this and startup event depending on chat response
-      // don't actually care about startup, just using the startup event so that
-      // the experiment gets loaded
-    }
-
     // Clean up this instance of the experiment.
     // Counterpart to the constructor.
     onShutdown(isAppShutdown) {
@@ -181,7 +173,6 @@
 
       ExtensionSupport.unregisterWindowListener(`header-columns-${this.extension.uuid}-${this.extension.instanceId}`);
 
-      // TODO possibly remove depending on chat response
       // Looks like we got uninstalled. Maybe a new version will be installed now.
       // Due to new versions not taking effect (https://bugzilla.mozilla.org/show_bug.cgi?id=1634348)
       // we invalidate the startup cache. That's the same effect as starting with -purgecaches
