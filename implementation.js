@@ -6,14 +6,8 @@
 
   var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
   var { ExtensionSupport } = ChromeUtils.import('resource:///modules/ExtensionSupport.jsm');
-  var { ExtensionParent } = ChromeUtils.import('resource://gre/modules/ExtensionParent.jsm');
-
-  const EXTENSION_NAME = "original-to-column@peterfab.com";
-  var extension = ExtensionParent.GlobalManager.getExtension(EXTENSION_NAME);
 
   const MSG_VIEW_FLAG_DUMMY = 0x20000000; // from DBViewWrapper.jsm
-
-  var managedColumns = new Map(); // list of columns to be added
 
   // Construct a column handler for the given header name
   function ColumnHandler(parseTree, sortNumeric) {
@@ -120,16 +114,60 @@
     }
   }
 
-  // Implements the functions defined in the experiments section of schema.json.
-  var HeaderColumns = class extends ExtensionCommon.ExtensionAPI {
+  class HeaderColumns extends ExtensionCommon.ExtensionAPI {
+    // List of columns managed by this instance of the experiment, passed
+    // directly to the customcol js. To update a column, change it in the map
+    // here and then notify customcols to reread the map.
+    const managedColumns = new Map();
+
+    // Construct an instance of our experiment; called once (per addon using the
+    // experiment) upon first experiment use, independent of calling contexts.
+    // The corresponding instance cleanup function is onShutdown().
+    constructor(...args) {
+      // Note: super() sets our this.experiment member to the extension.
+      super(...args);
+
+      ExtensionSupport.registerWindowListener(
+        `header-columns-${this.extension.uuid}-${this.extension.instanceId}`,
+        {
+          chromeURLs: [
+            "chrome://messenger/content/messenger.xul",
+            "chrome://messenger/content/messenger.xhtml"
+          ],
+          onLoadWindow: function(win) {
+            // FIXME this setup all overwrites an existing CustomColumns object if multiple instances of the API exist
+            // keep only one loaded somehow?
+            win.CustomColumns = {};
+            Services.scriptloader.loadSubScript(context.extension.getURL("api/header-columns-api/customcol.js"), win.CustomColumns);
+            win.CustomColumns.managedColumns = managedColumns;
+            win.CustomColumns.CustomColumnsView.init(win);
+          },
+          onUnloadWindow: function(win) {
+            // FIXME this causes an error on window close if multiple instances of the API exist
+            // how do we know whether to destroy or not?
+            win.CustomColumns.CustomColumnsView.destroy();
+            delete win.CustomColumns;
+          }
+        }
+      );
+    }
+
+    // Using the startup event causes our experiment to be instantiated on
+    // extension load instead of on first use.
     onStartup() {
+      // TODO possibly remove this and startup event depending on chat response
       // don't actually care about startup, just using the startup event so that
       // the experiment gets loaded
     }
 
+    // Clean up this instance of the experiment.
+    // Counterpart to the constructor.
     onShutdown(isAppShutdown) {
-      if (isAppShutdown) return;
+      if (isAppShutdown) return; // Everything is going away anyway.
 
+      ExtensionSupport.unregisterWindowListener(`header-columns-${this.extension.uuid}-${this.extension.instanceId}`);
+
+      // TODO possibly remove depending on chat response
       // Looks like we got uninstalled. Maybe a new version will be installed now.
       // Due to new versions not taking effect (https://bugzilla.mozilla.org/show_bug.cgi?id=1634348)
       // we invalidate the startup cache. That's the same effect as starting with -purgecaches
@@ -137,21 +175,12 @@
       Services.obs.notifyObservers(null, "startupcache-invalidate");
     }
 
+    // Create the API for a particular calling context. Could be called
+    // multiple times in a single instance of the experiment.
+    // Cleanup for each calling context is done using context.callOnClose().
     getAPI(context) {
-      context.callOnClose(this);
       return {
         HeaderColumns: {
-          addWindowListener() {
-            // Adds a listener to detect new windows.
-            ExtensionSupport.registerWindowListener(EXTENSION_NAME, {
-              chromeURLs: [
-                "chrome://messenger/content/messenger.xul",
-                "chrome://messenger/content/messenger.xhtml"
-              ],
-              onLoadWindow: paint,
-              onUnloadWindow: unpaint,
-            });
-          },
           registerColumn(id, label, tooltip, parseTree, sortNumeric) {
             let handler = new ColumnHandler(parseTree, sortNumeric);
             managedColumns.set(id, {
@@ -168,26 +197,7 @@
         }
       }
     }
-
-    close() {
-      ExtensionSupport.unregisterWindowListener(EXTENSION_NAME);
-      for (let win of Services.wm.getEnumerator("mail:3pane")) {
-        unpaint(win);
-      }
-    }
   };
-
-  function paint(win) {
-    win.CustomColumns = {};
-    Services.scriptloader.loadSubScript(extension.getURL("api/header-columns-api/customcol.js"), win.CustomColumns);
-    win.CustomColumns.managedColumns = managedColumns;
-    win.CustomColumns.CustomColumnsView.init(win);
-  }
-
-  function unpaint(win) {
-    win.CustomColumns.CustomColumnsView.destroy();
-    delete win.CustomColumns;
-  }
 
   exports.HeaderColumns = HeaderColumns;
 })(this);
