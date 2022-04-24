@@ -28,7 +28,7 @@ const columnOverlay = {
       try {
         // Copy the handler so its window property can be different when
         // the same handler ref is passed to multiple instances of customcol
-        const handlerCopy = Object.assign({}, col.handler);
+        const handlerCopy = Object.assign(Object.create(Object.getPrototypeOf(col.handler)), col.handler);
         handlerCopy.init(this.win);
         this.win.gDBView.addColumnHandler(id, handlerCopy);
       } catch (ex) {
