@@ -5,7 +5,8 @@
 (function (exports) {
 
   var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-  var { ExtensionSupport } = ChromeUtils.import('resource:///modules/ExtensionSupport.jsm');
+  var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
+  var { ExtensionSupport } = ChromeUtils.import("resource:///modules/ExtensionSupport.jsm");
 
   class ColumnHandler {
     constructor(parseTree, sortNumeric) {
@@ -73,13 +74,13 @@
     getCellProperties(row, col) { return ""; }
     getImageSrc(row, col) { return ""; }
     getCellText(row, col) {
-      if (!this.isDummy(row)) {
-        return this.getText(this.win.gDBView.getMsgHdrAt(row));
-      } else {
+      if (this.isDummy(row)) {
         return "";
+      } else {
+        return this.getText(this.win.gDBView.getMsgHdrAt(row));
       }
     }
-    cycleCell(row, col) {}
+    cycleCell(row, col) { return; }
     isEditable(row, col) { return false; }
 
     // Local functions, not called by Thunderbird
