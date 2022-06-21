@@ -8,10 +8,15 @@
   var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
   var { ExtensionSupport } = ChromeUtils.import("resource:///modules/ExtensionSupport.jsm");
   var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
+  var { XPCOMUtils } = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
+
+  let messenger = {};
+  XPCOMUtils.defineLazyGetter(messenger, "messages", () => context.apiCan.findAPIPath("messages"));
 
   class ColumnHandler {
-    constructor(win, parseTree, sortNumeric) {
+    constructor(win, extension, parseTree, sortNumeric) {
       this.win = win;
+      this.extension = extension;
       this.parseTree = parseTree;
       this.sortNumeric = sortNumeric;
     }
@@ -22,16 +27,16 @@
     // but it seems to work fine without some of the "required" ones anyway.
 
     // Required functions directly from nsIMsgCustomColumnHandler
-    getSortStringForRow(aHdr) {
-      return this.getText(aHdr);
+    async getSortStringForRow(aHdr) {
+      return await this.getText(aHdr);
     }
-    getSortLongForRow(aHdr) {
+    async getSortLongForRow(aHdr) {
       // Map float to long, preserving order. This takes advantage of the fact
       // that the binary value of least significant 31 bits of an IEEE-754 float
       // has an ordered correspondence with the absolute magnitude of the number.
 
       // First get the float value
-      let val = parseFloat(this.getText(aHdr));
+      let val = parseFloat(await this.getText(aHdr));
 
       // Sort non-numbers before numbers
       if (!isFinite(val)) {
@@ -70,11 +75,11 @@
     getRowProperties(index) { return ""; }
     getCellProperties(row, col) { return ""; }
     getImageSrc(row, col) { return ""; }
-    getCellText(row, col) {
+    async getCellText(row, col) {
       if (this.isDummy(row)) {
         return "";
       } else {
-        return this.getText(this.win.gDBView.getMsgHdrAt(row));
+        return await this.getText(this.win.gDBView.getMsgHdrAt(row));
       }
     }
     cycleCell(row, col) { return; }
@@ -85,10 +90,10 @@
       const MSG_VIEW_FLAG_DUMMY = 0x20000000; // from DBViewWrapper.jsm
       return (this.win.gDBView.getFlagsAt(row) & MSG_VIEW_FLAG_DUMMY) != 0;
     }
-    getText(aHdr) {
-      return this.parse(this.parseTree, aHdr);
+    async getText(aHdr) {
+      return await this.parse(this.parseTree, aHdr);
     }
-    parse(node, aHdr) {
+    async parse(node, aHdr) {
       // Recursively parse the tree to create the column content.
       switch (node.nodeType) {
         case "literal":
@@ -97,21 +102,24 @@
           // The desired headers must be stored in the message database, which is
           // controlled by mailnews.customDBHeaders preference.
           // getStringProperty returns "" if nothing is found.
-          return aHdr.getStringProperty(node.headerName.toLowerCase());
+          //return aHdr.getStringProperty(node.headerName.toLowerCase());
+          let messageHeader = this.extension.messageManager.convert(aHdr);
+          let { headers } = await messenger.messages.getFull(messageHeader.id);
+          return headers[node.headerName];
         case "replace":
           if (node.replaceAll) {
-            return this.parse(node.child, aHdr).replace(node.target, node.replacement);
+            return await this.parse(node.child, aHdr).replace(node.target, node.replacement);
           } else {
-            return this.parse(node.child, aHdr).replaceAll(node.target, node.replacement);
+            return await this.parse(node.child, aHdr).replaceAll(node.target, node.replacement);
           }
         case "regex":
           let re = new RegExp(node.pattern, node.flags); // potential errors
-          return this.parse(node.child, aHdr).replace(re, node.replacement);
+          return await this.parse(node.child, aHdr).replace(re, node.replacement);
         case "concat":
-          return node.children.map((child) => this.parse(child, aHdr)).join('');
+          return await node.children.map((child) => this.parse(child, aHdr)).join('');
         case "first":
           for (const child of node.children) {
-            let childResult = this.parse(child, aHdr);
+            let childResult = await this.parse(child, aHdr);
             if (childResult != "") {
               return childResult;
             }
