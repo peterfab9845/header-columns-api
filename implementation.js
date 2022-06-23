@@ -15,9 +15,8 @@
   XPCOMUtils.defineLazyGetter(messenger, "messages", () => context.apiCan.findAPIPath("messages"));
 
   class ColumnHandler {
-    constructor(win, extension, parseTree, sortNumeric) {
+    constructor(win, parseTree, sortNumeric) {
       this.win = win;
-      this.extension = extension;
       this.parseTree = parseTree;
       this.sortNumeric = sortNumeric;
     }
@@ -92,8 +91,7 @@
       return (this.win.gDBView.getFlagsAt(row) & MSG_VIEW_FLAG_DUMMY) != 0;
     }
     getText(aHdr) {
-      let id = this.extension.messageManager.convert(aHdr);
-      let value = headerCache.getHeaders(id); // false == pending
+      let value = headerCache.getHeaders(aHdr, this.win); // false == pending
       return value ? this.parse(this.parseTree, value) : "";
     }
     parse(node, headers) {
@@ -137,19 +135,20 @@
       this.timeouts = new Map();
     }
 
-    getHeaders(id, win) {
-      if (!cache.has(id)) {
-        cache.set(id, false); // false = pending
+    getHeaders(aHdr, win) {
+      let id = this.extension.messageManager.convert(aHdr);
+      if (!this.cache.has(id)) {
+        this.cache.set(id, false); // false = pending
         this.loadHeaders(id, win); // asynchronous call
       }
-      return cache.get(id);
+      return this.cache.get(id);
     }
 
     async loadHeaders(id, win) {
       let msg = await messenger.messages.getFull(id);
-      cache.set(id, msg.headers ?? {});
-      clearTimeout(timeouts.get(win));
-      timeouts.set(win, setTimeout(function() {
+      this.cache.set(id, msg.headers ?? {});
+      clearTimeout(this.timeouts.get(win));
+      this.timeouts.set(win, setTimeout(function() {
         // Update 1 row starting at row 0, for reason 2 (changed).
         // Despite only specifying a single row, this updates the contents of
         // custom columns for all rows.
@@ -247,7 +246,7 @@
       try {
         // We need a new instance of the handler for each window, because
         // each one needs a window reference to access message data.
-        let handler = new ColumnHandler(win, this.extension, col.parseTree, col.sortNumeric);
+        let handler = new ColumnHandler(win, col.parseTree, col.sortNumeric);
         win.gDBView.addColumnHandler(id, handler);
       } catch (ex) {
         console.error(ex);
