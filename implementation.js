@@ -149,9 +149,10 @@
       this.cache.set(id, msg.headers ?? {});
       clearTimeout(this.timeouts.get(win));
       this.timeouts.set(win, setTimeout(function() {
-        // Update 1 row starting at row 0, for reason 2 (changed).
+        // nsMsgViewNotificationCode::changed == 2
+        // Starting at row 0, update 1 row.
         // Despite only specifying a single row, this updates the contents of
-        // custom columns for all rows.
+        // custom columns for all rows. Not sure how I'd know which are visible.
         win.gDBView.NoteChange(0, 1, 2);
       }, 200));
     }
