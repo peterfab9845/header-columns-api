@@ -7,12 +7,9 @@
   var { AppConstants } = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
   var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
   var { ExtensionSupport } = ChromeUtils.import("resource:///modules/ExtensionSupport.jsm");
+  var { MailServices } = ChromeUtils.import("resource:///modules/MailServices.jsm");
+  var { MsgHdrToMimeMessage } = ChromeUtils.import("resource:///modules/gloda/MimeMessage.jsm");
   var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
-  var { XPCOMUtils } = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
-
-  // bring in the messages API
-  let messenger = {};
-  XPCOMUtils.defineLazyGetter(messenger, "messages", () => context.apiCan.findAPIPath("messages"));
 
   class ColumnHandler {
     constructor(win, parseTree, sortNumeric) {
@@ -129,25 +126,24 @@
   }
 
   class HeaderCache {
-    constructor(extension) {
-      this.extension = extension;
+    constructor() {
       this.cache = new Map();
       this.timeouts = new Map();
     }
 
     getHeaders(aHdr, win) {
-      let id = this.extension.messageManager.convert(aHdr);
-      if (!this.cache.has(id)) {
-        this.cache.set(id, false); // false = pending
-        this.loadHeaders(id, win); // asynchronous call
+      if (!this.cache.has(aHdr)) {
+        this.cache.set(aHdr, false); // false = pending
+        this.loadHeaders(aHdr, win); // asynchronous call
       }
-      return this.cache.get(id);
+      return this.cache.get(aHdr);
     }
 
-    async loadHeaders(id, win) {
-      let msg = await messenger.messages.getFull(id);
-      this.cache.set(id, msg.headers ?? {});
-      // Wait to update the view, because these requests come in bursts.
+    async loadHeaders(aHdr, win) {
+      let msg = await this.getMimeMessage(aHdr);
+      let headers = this.convertMimeHeaders(msg);
+      this.cache.set(aHdr, headers ?? {});
+      // Don't update the view right away because these requests come in bursts.
       // User interaction (such as mousing over or scrolling the view) will also
       // cause updates, so this delay is typically invisible.
       clearTimeout(this.timeouts.get(win));
@@ -161,6 +157,46 @@
         // nsMsgViewNotificationCode::changed == 2
         win.gDBView.NoteChange(0, win.gDBView.numMsgsInView - 1, 2);
       }, 200));
+    }
+
+    // https://searchfox.org/comm-central/source/mail/components/extensions/parent/ext-messages.js
+    // getMimeMessage(msgHdr)
+    async getMimeMessage(msgHdr) {
+      return await new Promise(resolve => {
+        MsgHdrToMimeMessage(
+          msgHdr,
+          null,
+          (_msgHdr, mimeMsg) => {
+            resolve(mimeMsg);
+          },
+          true, // aAllowDownload
+          {
+            // only need headers
+            "saneBodySize": true,
+            "partsOnDemand": true,
+            "examineEncryptedParts": false
+          }
+        );
+      });
+    }
+
+    // https://searchfox.org/comm-central/source/mail/components/extensions/parent/ext-messages.js
+    // convertMessagePart(part)
+    convertMimeHeaders(part) {
+      let convertedHeaders = {};
+      if ("headers" in part) {
+        for (let header of Object.keys(part.headers)) {
+          convertedHeaders[header] = part.headers[header].map(h =>
+            MailServices.mimeConverter.decodeMimeHeader(
+              h,
+              null, // aDefaultCharset
+              false, // aOverride (charset)
+              true // aUnfold (line continuations)
+            )
+          );
+        }
+      }
+      return convertedHeaders;
     }
   }
 
@@ -365,7 +401,7 @@
       super(...args);
 
       manager = new ColumnManager(this.extension);
-      headerCache = new HeaderCache(this.extension);
+      headerCache = new HeaderCache();
 
       createDBViewObserver.register();
 
