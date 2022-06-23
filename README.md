@@ -18,8 +18,6 @@ Include the repository within your extension's `api` folder, and add the followi
 }
 ```
 
-Additionally, make sure to include the `messagesRead` permission in the `permissions` array.
-
 ## Usage
 
 ### API Functions
