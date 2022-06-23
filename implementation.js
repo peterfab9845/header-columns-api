@@ -156,7 +156,7 @@
         // how I'd find out which rows are visible on my own anyway.
         // nsMsgViewNotificationCode::changed == 2
         win.gDBView.NoteChange(0, win.gDBView.numMsgsInView - 1, 2);
-      }, 200));
+      }, 100));
     }
 
     // https://searchfox.org/comm-central/source/mail/components/extensions/parent/ext-messages.js
