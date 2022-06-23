@@ -147,13 +147,19 @@
     async loadHeaders(id, win) {
       let msg = await messenger.messages.getFull(id);
       this.cache.set(id, msg.headers ?? {});
+      // Wait to update the view, because these requests come in bursts.
+      // User interaction (such as mousing over or scrolling the view) will also
+      // cause updates, so this delay is typically invisible.
       clearTimeout(this.timeouts.get(win));
       this.timeouts.set(win, setTimeout(function() {
+        // If at least one message in the given range is visible, then custom
+        // column values for all visible rows will be updated irrespective of
+        // the actual specified range.
+        // The range is automatically trimmed to visible rows, so just specify
+        // the whole thing to make sure we include something visible. Not sure
+        // how I'd find out which rows are visible on my own anyway.
         // nsMsgViewNotificationCode::changed == 2
-        // Starting at row 0, update 1 row.
-        // Despite only specifying a single row, this updates the contents of
-        // custom columns for all rows. Not sure how I'd know which are visible.
-        win.gDBView.NoteChange(0, 1, 2);
+        win.gDBView.NoteChange(0, win.gDBView.numMsgsInView - 1, 2);
       }, 200));
     }
   }
