@@ -146,8 +146,8 @@
       // Don't update the view right away because these requests come in bursts.
       // User interaction (such as mousing over or scrolling the view) will also
       // cause updates, so this delay is typically invisible.
-      clearTimeout(this.timeouts.get(win));
-      this.timeouts.set(win, setTimeout(function() {
+      win.clearTimeout(this.timeouts.get(win));
+      this.timeouts.set(win, win.setTimeout(function() {
         // If at least one message in the given range is visible, then custom
         // column values for all visible rows will be updated irrespective of
         // the actual specified range.
