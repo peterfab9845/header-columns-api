@@ -341,6 +341,9 @@
     }
   }
 
+  var manager;
+  var headerCache;
+
   var createDBViewObserver = {
     observe(aMsgFolder, aTopic, aData) {
       manager.onCreateDBView();
@@ -352,9 +355,6 @@
       Services.obs.removeObserver(this, "MsgCreateDBView");
     }
   };
-
-  var manager;
-  var headerCache;
 
   class HeaderColumns extends ExtensionCommon.ExtensionAPI {
     // Construct an instance of our experiment; called once (per addon using the
