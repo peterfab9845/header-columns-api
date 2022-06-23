@@ -18,6 +18,8 @@ Include the repository within your extension's `api` folder, and add the followi
 }
 ```
 
+Additionally, make sure to include the `messagesRead` permission in the `permissions` array.
+
 ## Usage
 
 ### API Functions
@@ -96,14 +98,6 @@ Example:
   ]
 }
 ```
-
-### The `customDBHeaders` Preference
-
-In order for the content of a particular header to be recorded in the mail database, that header must be present in the space-separated preference `mailnews.customDBHeaders` at the time the message is downloaded.
-If needed, the database for a folder can be rebuilt by selecting Folder Properties > Repair Folder.
-Note that this process may reset its column layout and sort order.
-
-This API does not manage this preference; for this purpose, it is currently recommended to use the [LegacyPrefs](https://github.com/thundernest/addon-developer-support/tree/master/auxiliary-apis/LegacyPrefs) experiment API.
 
 ## Example Add-ons
 
