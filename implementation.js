@@ -10,6 +10,7 @@
   var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
   var { XPCOMUtils } = ChromeUtils.import("resource://gre/modules/XPCOMUtils.jsm");
 
+  // bring in the messages API
   let messenger = {};
   XPCOMUtils.defineLazyGetter(messenger, "messages", () => context.apiCan.findAPIPath("messages"));
 
@@ -27,16 +28,16 @@
     // but it seems to work fine without some of the "required" ones anyway.
 
     // Required functions directly from nsIMsgCustomColumnHandler
-    async getSortStringForRow(aHdr) {
-      return await this.getText(aHdr);
+    getSortStringForRow(aHdr) {
+      return this.getText(aHdr);
     }
-    async getSortLongForRow(aHdr) {
+    getSortLongForRow(aHdr) {
       // Map float to long, preserving order. This takes advantage of the fact
       // that the binary value of least significant 31 bits of an IEEE-754 float
       // has an ordered correspondence with the absolute magnitude of the number.
 
       // First get the float value
-      let val = parseFloat(await this.getText(aHdr));
+      let val = parseFloat(this.getText(aHdr));
 
       // Sort non-numbers before numbers
       if (!isFinite(val)) {
@@ -75,11 +76,11 @@
     getRowProperties(index) { return ""; }
     getCellProperties(row, col) { return ""; }
     getImageSrc(row, col) { return ""; }
-    async getCellText(row, col) {
+    getCellText(row, col) {
       if (this.isDummy(row)) {
         return "";
       } else {
-        return await this.getText(this.win.gDBView.getMsgHdrAt(row));
+        return this.getText(this.win.gDBView.getMsgHdrAt(row));
       }
     }
     cycleCell(row, col) { return; }
@@ -90,36 +91,32 @@
       const MSG_VIEW_FLAG_DUMMY = 0x20000000; // from DBViewWrapper.jsm
       return (this.win.gDBView.getFlagsAt(row) & MSG_VIEW_FLAG_DUMMY) != 0;
     }
-    async getText(aHdr) {
-      return await this.parse(this.parseTree, aHdr);
+    getText(aHdr) {
+      let id = this.extension.messageManager.convert(aHdr);
+      let value = headerCache.getHeaders(id); // false == pending
+      return value ? this.parse(this.parseTree, value) : "";
     }
-    async parse(node, aHdr) {
+    parse(node, headers) {
       // Recursively parse the tree to create the column content.
       switch (node.nodeType) {
         case "literal":
           return node.literalString;
         case "header":
-          // The desired headers must be stored in the message database, which is
-          // controlled by mailnews.customDBHeaders preference.
-          // getStringProperty returns "" if nothing is found.
-          //return aHdr.getStringProperty(node.headerName.toLowerCase());
-          let messageHeader = this.extension.messageManager.convert(aHdr);
-          let { headers } = await messenger.messages.getFull(messageHeader.id);
-          return headers[node.headerName];
+          return headers[node.headerName.toLowerCase()] ?? "";
         case "replace":
           if (node.replaceAll) {
-            return await this.parse(node.child, aHdr).replace(node.target, node.replacement);
+            return this.parse(node.child, headers).replace(node.target, node.replacement);
           } else {
-            return await this.parse(node.child, aHdr).replaceAll(node.target, node.replacement);
+            return this.parse(node.child, headers).replaceAll(node.target, node.replacement);
           }
         case "regex":
           let re = new RegExp(node.pattern, node.flags); // potential errors
-          return await this.parse(node.child, aHdr).replace(re, node.replacement);
+          return this.parse(node.child, headers).replace(re, node.replacement);
         case "concat":
-          return await node.children.map((child) => this.parse(child, aHdr)).join('');
+          return node.children.map((child) => this.parse(child, headers)).join('');
         case "first":
           for (const child of node.children) {
-            let childResult = await this.parse(child, aHdr);
+            let childResult = this.parse(child, headers);
             if (childResult != "") {
               return childResult;
             }
@@ -130,6 +127,34 @@
           return "";
       }
       return "";
+    }
+  }
+
+  class HeaderCache {
+    constructor(extension) {
+      this.extension = extension;
+      this.cache = new Map();
+      this.timeouts = new Map();
+    }
+
+    getHeaders(id, win) {
+      if (!cache.has(id)) {
+        cache.set(id, false); // false = pending
+        this.loadHeaders(id, win); // asynchronous call
+      }
+      return cache.get(id);
+    }
+
+    async loadHeaders(id, win) {
+      let msg = await messenger.messages.getFull(id);
+      cache.set(id, msg.headers ?? {});
+      clearTimeout(timeouts.get(win));
+      timeouts.set(win, setTimeout(function() {
+        // Update 1 row starting at row 0, for reason 2 (changed).
+        // Despite only specifying a single row, this updates the contents of
+        // custom columns for all rows.
+        win.gDBView.NoteChange(0, 1, 2);
+      }, 200));
     }
   }
 
@@ -222,7 +247,7 @@
       try {
         // We need a new instance of the handler for each window, because
         // each one needs a window reference to access message data.
-        let handler = new ColumnHandler(win, col.parseTree, col.sortNumeric);
+        let handler = new ColumnHandler(win, this.extension, col.parseTree, col.sortNumeric);
         win.gDBView.addColumnHandler(id, handler);
       } catch (ex) {
         console.error(ex);
@@ -310,8 +335,6 @@
     }
   }
 
-  var manager;
-
   var createDBViewObserver = {
     observe(aMsgFolder, aTopic, aData) {
       manager.onCreateDBView();
@@ -324,6 +347,9 @@
     }
   };
 
+  var manager;
+  var headerCache;
+
   class HeaderColumns extends ExtensionCommon.ExtensionAPI {
     // Construct an instance of our experiment; called once (per addon using the
     // experiment) upon first experiment use, independent of calling contexts.
@@ -333,6 +359,7 @@
       super(...args);
 
       manager = new ColumnManager(this.extension);
+      headerCache = new HeaderCache(this.extension);
 
       createDBViewObserver.register();
 
