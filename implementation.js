@@ -91,8 +91,8 @@
       return (this.win.gDBView.getFlagsAt(row) & MSG_VIEW_FLAG_DUMMY) != 0;
     }
     getText(aHdr) {
-      let value = headerCache.getHeaders(aHdr, this.win); // false == pending
-      return value ? this.parse(this.parseTree, value) : "";
+      let result = headerCache.getHeaders(aHdr, this.win); // false == pending
+      return result ? this.parse(this.parseTree, result) : "";
     }
     parse(node, headers) {
       // Recursively parse the tree to create the column content.
