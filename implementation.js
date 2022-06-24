@@ -97,8 +97,8 @@
         case "literal":
           return node.literalString;
         case "header":
-          // TODO add optional index property (replace the 0). at() allows -1 => last
-          return headers[node.headerName.toLowerCase()]?.at(0) ?? "";
+          // at() instead of [] allows -1 => last
+          return headers[node.headerName.toLowerCase()]?.at(node.headerIndex ?? 0) ?? "";
         case "replace":
           if (node.replaceAll) {
             return this.parse(node.child, headers).replaceAll(node.target, node.replacement);

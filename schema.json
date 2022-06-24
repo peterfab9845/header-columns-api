@@ -30,6 +30,10 @@
               },
               "headerName": {
                 "type": "string"
+              },
+              "headerIndex": {
+                "type": "integer",
+                "optional": true
               }
             }
           },

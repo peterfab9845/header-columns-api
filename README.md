@@ -44,6 +44,7 @@ Each node's type is designated by its `nodeType` property.
     - Returns raw header content
     - Properties:
         - `headerName` - Name of header
+        - `headerIndex` (optional, default 0) - Which occurrence of a repeated header to take. Negatives wrap around (-1 = last, -2 = second-last).
 - `literal`
     - Returns literal string
     - Properties:
