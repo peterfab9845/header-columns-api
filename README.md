@@ -74,31 +74,39 @@ Each node's type is designated by its `nodeType` property.
 
 Invalid parse trees will not be accepted by the API, due to verification against `schema.json`.
 
-Example:
+## Examples
 
-```json
-{
-  "nodeType": "concat",
-  "children": [
-    {
-      "nodeType": "literal",
-      "literalString": "Hello "
-    },
-    {
-      "nodeType": "regex",
-      "target": " <.*>$",
-      "replacement": "",
-      "flags": "",
-      "child": {
-        "nodeType": "header",
-        "headerName": "To"
+### Column Registration
+
+```javascript
+messenger.HeaderColumns.registerColumn(
+  "fromDomainColumn",
+  "From domain",
+  "Sort by from domain",
+  {
+    "nodeType": "concat",
+    "children": [
+      {
+        "nodeType": "literal",
+        "literalString": "Domain is "
+      },
+      {
+        "nodeType": "regex",
+        "pattern": ".*@([^>]*)>?$",
+        "replacement": "$1",
+        "flags": "",
+        "child": {
+          "nodeType": "header",
+          "headerName": "From",
+        }
       }
-    }
-  ]
-}
+    ]
+  },
+  false
+);
 ```
 
-## Example Add-ons
+### Full Add-ons
 
 * [X-Original-To Column](https://github.com/peterfab9845/original-to-column): Simple add-on adding a column with the content of the X-Original-To header.
 * [Header Columns](https://github.com/peterfab9845/tb-header-columns): More advanced add-on allowing users to create their own custom columns.
