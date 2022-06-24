@@ -100,9 +100,9 @@
           return headers[node.headerName.toLowerCase()] ?? "";
         case "replace":
           if (node.replaceAll) {
-            return this.parse(node.child, headers).replace(node.target, node.replacement);
-          } else {
             return this.parse(node.child, headers).replaceAll(node.target, node.replacement);
+          } else {
+            return this.parse(node.child, headers).replace(node.target, node.replacement);
           }
         case "regex":
           let re = new RegExp(node.pattern, node.flags); // potential errors
