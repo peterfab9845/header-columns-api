@@ -135,6 +135,7 @@
             "optional": true,
             "description": "True if message DB properties should be used without fetching full headers."
           }
+        }
       }
     ],
     "functions": [
