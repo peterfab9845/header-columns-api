@@ -80,12 +80,11 @@ Invalid parse trees will not be accepted by the API, due to verification against
 The options object defines various configurations for the column, as listed below.
 
 - `sortNumeric` (optional, default false) - If true, the column will be sorted by the numeric value of the final content; otherwise, it will be sorted alphanumerically.
-- `useDBHeaders` (optional, default false) - If true, only headers which are pre-parsed into the DB will be available (see below). This provides a significant performance improvement at the cost of convenience.
+- `useDBHeaders` (optional, default false) - If true, only headers which are pre-parsed into the DB will be available. This provides a significant performance improvement, but has several important caveats (see below).
 
 ### The `customDBHeaders` Preference
 
-In order for the content of a non-default header to be parsed and recorded in the mail database, allowing it to be used with `useDBHeaders` set, that header must be present in the space-separated preference `mailnews.customDBHeaders` at the time the message is downloaded.
-This Experiment API does not manage the `customDBHeaders` preference.
+In order for the content of a non-default header to be parsed and recorded in the mail database by Thunderbird, allowing it to be used with `useDBHeaders` set, that header must be listed in the space-separated preference `mailnews.customDBHeaders` at the time the message is downloaded.
 
 If needed, new headers can be added to existing messages by running a repair operation on their containing folder (Folder Properties > Repair Folder).
 Note that this process may reset the folder's column layout and sort order.
@@ -106,6 +105,8 @@ Some possibly useful properties which may exist are:
 - `message-id` - message id string
 - `msgCharSet` - message charset
 - `numLines` - total message lines with headers, in hex
+
+NOTE: This Experiment API does not manage the `customDBHeaders` preference, and cannot make any guarantees regarding the default properties listed above.
 
 ## Examples
 
