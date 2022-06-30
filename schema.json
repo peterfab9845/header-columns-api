@@ -120,6 +120,21 @@
             }
           }
         ]
+      },
+      {
+        "id": "options",
+        "type": "object",
+        "properties": {
+          "sortNumeric": {
+            "type": "boolean",
+            "optional": true,
+            "description": "True if the column should be sorted in numerical order."
+          },
+          "useDBHeaders": {
+            "type": "boolean",
+            "optional": true,
+            "description": "True if message DB properties should be used without fetching full headers."
+          }
       }
     ],
     "functions": [
@@ -151,9 +166,10 @@
             "description": "The tree defining how the column content should be created."
           },
           {
-            "name": "sortNumeric",
-            "type": "boolean",
-            "description": "True if the header should be sorted numerically."
+            "name": "options",
+            "type": "object",
+            "$ref": "options",
+            "description": "An object defining options for the column."
           }
         ]
       },

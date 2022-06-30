@@ -12,10 +12,13 @@
   var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
   class ColumnHandler {
-    constructor(win, parseTree, sortNumeric) {
+    constructor(win, parseTree, options) {
       this.win = win;
       this.parseTree = parseTree;
-      this.sortNumeric = sortNumeric;
+      this.options = options;
+      // defaults - TODO potentially remove if schema can specify default values
+      this.options.sortNumeric ??= false;
+      this.options.useDBHeaders ??= false;
     }
 
     // Required (?) custom column handler functions are according to
@@ -65,7 +68,7 @@
       return bits ^ ((bits >> 31) | (1 << 31));
     }
     isString() {
-      return !this.sortNumeric;
+      return !this.options.sortNumeric;
     }
 
     // Required functions inherited from nsITreeView
@@ -88,31 +91,43 @@
       return (this.win.gDBView.getFlagsAt(row) & MSG_VIEW_FLAG_DUMMY) != 0;
     }
     getText(aHdr) {
-      let result = headerCache.getHeaders(aHdr, this.win); // false == pending
-      return result ? this.parse(this.parseTree, result) : "";
+      if (this.options.useDBHeaders) {
+        return this.parse(this.parseTree, aHdr);
+      } else {
+        let headers = headerCache.getHeaders(aHdr, this.win); // false == pending
+        return headers ? this.parse(this.parseTree, headers) : "";
+      }
     }
-    parse(node, headers) {
+    parse(node, headerSource) {
       // Recursively parse the tree to create the column content.
       switch (node.nodeType) {
         case "literal":
           return node.literalString;
         case "header":
-          // at() instead of [] allows -1 => last
-          return headers[node.headerName.toLowerCase()]?.at(node.headerIndex ?? 0) ?? "";
+          if (this.options.useDBHeaders) {
+            // headerSource == aHdr
+            // getStringProperty returns "" if the property is unavailable.
+            return headerSource.getStringProperty(node.headerName.toLowerCase());
+          } else {
+            // headerSource == object of arrays of header content
+            // at() instead of [] allows -1 => last
+            return headerSource[node.headerName.toLowerCase()]?.at(node.headerIndex ?? 0) ?? "";
+            // TODO maybe remove this if the schema can give a default? ----------> ^^^^
+          }
         case "replace":
           if (node.replaceAll) {
-            return this.parse(node.child, headers).replaceAll(node.target, node.replacement);
+            return this.parse(node.child, headerSource).replaceAll(node.target, node.replacement);
           } else {
-            return this.parse(node.child, headers).replace(node.target, node.replacement);
+            return this.parse(node.child, headerSource).replace(node.target, node.replacement);
           }
         case "regex":
           let re = new RegExp(node.pattern, node.flags); // potential errors
-          return this.parse(node.child, headers).replace(re, node.replacement);
+          return this.parse(node.child, headerSource).replace(re, node.replacement);
         case "concat":
-          return node.children.map((child) => this.parse(child, headers)).join('');
+          return node.children.map((child) => this.parse(child, headerSource)).join('');
         case "first":
           for (const child of node.children) {
-            let childResult = this.parse(child, headers);
+            let childResult = this.parse(child, headerSource);
             if (childResult != "") {
               return childResult;
             }
@@ -255,12 +270,12 @@
     }
 
     // Add handlers and elements for a column to all windows.
-    onRegisterColumn(id, label, tooltip, parseTree, sortNumeric) {
+    onRegisterColumn(id, label, tooltip, parseTree, options) {
       this.managedColumns.set(id, {
         "label": label,
         "tooltip": tooltip,
         "parseTree": parseTree,
-        "sortNumeric": sortNumeric
+        "options": options
       });
       for (const win of this.managedWindows.keys()) {
         this.addHandler(win, id);
@@ -290,7 +305,7 @@
       try {
         // We need a new instance of the handler for each window, because
         // each one needs a window reference to access message data.
-        let handler = new ColumnHandler(win, col.parseTree, col.sortNumeric);
+        let handler = new ColumnHandler(win, col.parseTree, col.options);
         win.gDBView.addColumnHandler(id, handler);
       } catch (ex) {
         console.error(ex);
@@ -445,7 +460,7 @@
     getAPI(context) {
       return {
         HeaderColumns: {
-          registerColumn(id, label, tooltip, parseTree, sortNumeric) {
+          registerColumn(id, label, tooltip, parseTree, options) {
             manager.onRegisterColumn(...arguments);
           },
           unregisterColumn(id) {
