@@ -178,6 +178,8 @@
     // https://searchfox.org/comm-central/source/mail/components/extensions/parent/ext-messages.js
     // getMimeMessage(msgHdr)
     async getMimeMessage(msgHdr) {
+      // TODO NNTP messages not supported by MsgHdrToMimeMessage.
+      // Use MsgHdrToRawMessage, as in messages API (link above).
       return await new Promise(resolve => {
         MsgHdrToMimeMessage(
           msgHdr,
