@@ -77,7 +77,7 @@ Invalid parse trees will not be accepted by the API, due to verification against
 
 ### Options
 
-The options object defines various configurations for the column, as listed below.
+The options object defines various configurations for the column, via the properties listed below.
 
 - `sortNumeric` (optional, default false) - If true, the column will be sorted by the numeric value of the final content; otherwise, it will be sorted alphanumerically.
 - `useDBHeaders` (optional, default false) - If true, only headers which are pre-parsed into the DB will be available. This provides a significant performance improvement, but has several important caveats (see below).
