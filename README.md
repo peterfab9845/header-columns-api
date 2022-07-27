@@ -44,8 +44,9 @@ Each node's type is designated by its `nodeType` property.
     - Properties:
         - `headerName` - Name of header
         - `headerIndex` (optional, default 0) - Which occurrence of a repeated header to take
-            - 0 = first occurrence, 1 = second, etc. Negatives wrap around (-1 = last occurrence, -2 = second-last, etc.)
-            - Has no effect if the `useDBHeaders` option is true. Behavior with repeated headers depends on TB version and has special cases.
+            - 0 = first occurrence, 1 = second, etc.
+            Negatives wrap around (-1 = last occurrence, -2 = second-last, etc.)
+            - Has no effect if the `useDBHeaders` option is true (see Options section)
 - `literal`
     - Returns literal string
     - Properties:
@@ -80,7 +81,11 @@ Invalid parse trees will not be accepted by the API, due to verification against
 The options object defines various configurations for the column, via the properties listed below.
 
 - `sortNumeric` (optional, default false) - If true, the column will be sorted by the numeric value of the final content; otherwise, it will be sorted alphanumerically.
-- `useDBHeaders` (optional, default false) - If true, only headers which are pre-parsed into the DB will be available. This provides a significant performance improvement, but has several important caveats (see below).
+- `useDBHeaders` (optional, default false) - If true, only headers which are pre-parsed into the DB will be available.
+This provides a significant performance improvement, but has several important caveats:
+    - The `customDBHeaders` preference (see following section) needs to be set in order to read most headers.
+    - The `headerIndex` property has no effect.
+    Behavior with repeated headers depends on TB version and has special cases.
 
 ### The `customDBHeaders` Preference
 
