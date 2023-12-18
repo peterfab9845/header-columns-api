@@ -16,7 +16,7 @@
       this.win = win;
       this.parseTree = parseTree;
       this.options = options;
-      // defaults - TODO potentially remove if schema can specify default values
+      // defaults
       this.options.sortNumeric ??= false;
       this.options.useDBHeaders ??= false;
     }
@@ -94,7 +94,7 @@
       if (this.options.useDBHeaders) {
         return this.parse(this.parseTree, aHdr);
       } else {
-        let headers = headerCache.getHeaders(aHdr, this.win); // false == pending
+        let headers = headerCache.getHeaders(aHdr, this.win); // null == pending
         return headers ? this.parse(this.parseTree, headers) : "";
       }
     }
@@ -112,7 +112,6 @@
             // headerSource == object of arrays of header content
             // at() instead of [] allows -1 => last
             return headerSource[node.headerName.toLowerCase()]?.at(node.headerIndex ?? 0) ?? "";
-            // TODO maybe remove this if the schema can give a default? ----------> ^^^^
           }
         case "replace":
           if (node.replaceAll) {
@@ -149,7 +148,7 @@
 
     getHeaders(aHdr, win) {
       if (!this.cache.has(aHdr)) {
-        this.cache.set(aHdr, false); // false = pending
+        this.cache.set(aHdr, null); // null = pending
         this.loadHeaders(aHdr, win); // asynchronous call
       }
       return this.cache.get(aHdr);
@@ -159,6 +158,7 @@
       let msg = await this.getMimeMessage(aHdr);
       let headers = this.convertMimeHeaders(msg);
       this.cache.set(aHdr, headers ?? {});
+      // TODO separate view refreshing from header cache
       // Don't update the view right away because these requests come in bursts.
       // User interaction (such as mousing over or scrolling the view) will also
       // cause updates, so this delay is typically invisible.
