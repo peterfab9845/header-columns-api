@@ -7,13 +7,18 @@
   var { AppConstants } = ChromeUtils.import("resource://gre/modules/AppConstants.jsm");
   var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
   var { ExtensionSupport } = ChromeUtils.import("resource:///modules/ExtensionSupport.jsm");
+  var { MailServices } = ChromeUtils.import("resource:///modules/MailServices.jsm");
+  var { MsgHdrToMimeMessage } = ChromeUtils.import("resource:///modules/gloda/MimeMessage.jsm");
   var { Services } = ChromeUtils.import("resource://gre/modules/Services.jsm");
 
   class ColumnHandler {
-    constructor(win, parseTree, sortNumeric) {
+    constructor(win, parseTree, options) {
       this.win = win;
       this.parseTree = parseTree;
-      this.sortNumeric = sortNumeric;
+      this.options = options;
+      // defaults
+      this.options.sortNumeric ??= false;
+      this.options.useDBHeaders ??= false;
     }
 
     // Required (?) custom column handler functions are according to
@@ -63,7 +68,7 @@
       return bits ^ ((bits >> 31) | (1 << 31));
     }
     isString() {
-      return !this.sortNumeric;
+      return !this.options.sortNumeric;
     }
 
     // Required functions inherited from nsITreeView
@@ -86,32 +91,42 @@
       return (this.win.gDBView.getFlagsAt(row) & MSG_VIEW_FLAG_DUMMY) != 0;
     }
     getText(aHdr) {
-      return this.parse(this.parseTree, aHdr);
+      if (this.options.useDBHeaders) {
+        return this.parse(this.parseTree, aHdr);
+      } else {
+        let headers = headerCache.getHeaders(aHdr, this.win); // null == pending
+        return headers ? this.parse(this.parseTree, headers) : "";
+      }
     }
-    parse(node, aHdr) {
+    parse(node, headerSource) {
       // Recursively parse the tree to create the column content.
       switch (node.nodeType) {
         case "literal":
           return node.literalString;
         case "header":
-          // The desired headers must be stored in the message database, which is
-          // controlled by mailnews.customDBHeaders preference.
-          // getStringProperty returns "" if nothing is found.
-          return aHdr.getStringProperty(node.headerName.toLowerCase());
+          if (this.options.useDBHeaders) {
+            // headerSource == aHdr
+            // getStringProperty returns "" if the property is unavailable.
+            return headerSource.getStringProperty(node.headerName.toLowerCase());
+          } else {
+            // headerSource == object of arrays of header content
+            // at() instead of [] allows -1 => last
+            return headerSource[node.headerName.toLowerCase()]?.at(node.headerIndex ?? 0) ?? "";
+          }
         case "replace":
           if (node.replaceAll) {
-            return this.parse(node.child, aHdr).replace(node.target, node.replacement);
+            return this.parse(node.child, headerSource).replaceAll(node.target, node.replacement);
           } else {
-            return this.parse(node.child, aHdr).replaceAll(node.target, node.replacement);
+            return this.parse(node.child, headerSource).replace(node.target, node.replacement);
           }
         case "regex":
           let re = new RegExp(node.pattern, node.flags); // potential errors
-          return this.parse(node.child, aHdr).replace(re, node.replacement);
+          return this.parse(node.child, headerSource).replace(re, node.replacement);
         case "concat":
-          return node.children.map((child) => this.parse(child, aHdr)).join('');
+          return node.children.map((child) => this.parse(child, headerSource)).join('');
         case "first":
           for (const child of node.children) {
-            let childResult = this.parse(child, aHdr);
+            let childResult = this.parse(child, headerSource);
             if (childResult != "") {
               return childResult;
             }
@@ -122,6 +137,84 @@
           return "";
       }
       return "";
+    }
+  }
+
+  class HeaderCache {
+    constructor() {
+      this.cache = new Map();
+      this.timeouts = new Map();
+    }
+
+    getHeaders(aHdr, win) {
+      if (!this.cache.has(aHdr)) {
+        this.cache.set(aHdr, null); // null = pending
+        this.loadHeaders(aHdr, win); // asynchronous call
+      }
+      return this.cache.get(aHdr);
+    }
+
+    async loadHeaders(aHdr, win) {
+      let msg = await this.getMimeMessage(aHdr);
+      let headers = this.convertMimeHeaders(msg);
+      this.cache.set(aHdr, headers ?? {});
+      // TODO separate view refreshing from header cache
+      // Don't update the view right away because these requests come in bursts.
+      // User interaction (such as mousing over or scrolling the view) will also
+      // cause updates, so this delay is typically invisible.
+      win.clearTimeout(this.timeouts.get(win));
+      this.timeouts.set(win, win.setTimeout(function() {
+        // If at least one message in the given range is visible, then custom
+        // column values for all visible rows will be updated irrespective of
+        // the actual specified range.
+        // The range is automatically trimmed to visible rows, so just specify
+        // the whole thing to make sure we include something visible. Not sure
+        // how I'd find out which rows are visible on my own anyway.
+        // nsMsgViewNotificationCode::changed == 2
+        win.gDBView.NoteChange(0, win.gDBView.numMsgsInView - 1, 2);
+      }, 100));
+    }
+
+    // https://searchfox.org/comm-central/source/mail/components/extensions/parent/ext-messages.js
+    // getMimeMessage(msgHdr)
+    async getMimeMessage(msgHdr) {
+      // TODO NNTP messages not supported by MsgHdrToMimeMessage.
+      // Use MsgHdrToRawMessage, as in messages API (link above).
+      return await new Promise(resolve => {
+        MsgHdrToMimeMessage(
+          msgHdr,
+          null,
+          (_msgHdr, mimeMsg) => {
+            resolve(mimeMsg);
+          },
+          true, // aAllowDownload
+          {
+            // only need headers
+            "saneBodySize": true,
+            "partsOnDemand": true,
+            "examineEncryptedParts": false
+          }
+        );
+      });
+    }
+
+    // https://searchfox.org/comm-central/source/mail/components/extensions/parent/ext-messages.js
+    // convertMessagePart(part)
+    convertMimeHeaders(part) {
+      let convertedHeaders = {};
+      if ("headers" in part) {
+        for (let header of Object.keys(part.headers)) {
+          convertedHeaders[header] = part.headers[header].map(h =>
+            MailServices.mimeConverter.decodeMimeHeader(
+              h,
+              null, // aDefaultCharset
+              false, // aOverride (charset)
+              true // aUnfold (line continuations)
+            )
+          );
+        }
+      }
+      return convertedHeaders;
     }
   }
 
@@ -179,12 +272,12 @@
     }
 
     // Add handlers and elements for a column to all windows.
-    onRegisterColumn(id, label, tooltip, parseTree, sortNumeric) {
+    onRegisterColumn(id, label, tooltip, parseTree, options) {
       this.managedColumns.set(id, {
         "label": label,
         "tooltip": tooltip,
         "parseTree": parseTree,
-        "sortNumeric": sortNumeric
+        "options": options
       });
       for (const win of this.managedWindows.keys()) {
         this.addHandler(win, id);
@@ -214,7 +307,7 @@
       try {
         // We need a new instance of the handler for each window, because
         // each one needs a window reference to access message data.
-        let handler = new ColumnHandler(win, col.parseTree, col.sortNumeric);
+        let handler = new ColumnHandler(win, col.parseTree, col.options);
         win.gDBView.addColumnHandler(id, handler);
       } catch (ex) {
         console.error(ex);
@@ -303,6 +396,7 @@
   }
 
   var manager;
+  var headerCache;
 
   var createDBViewObserver = {
     observe(aMsgFolder, aTopic, aData) {
@@ -325,6 +419,7 @@
       super(...args);
 
       manager = new ColumnManager(this.extension);
+      headerCache = new HeaderCache();
 
       createDBViewObserver.register();
 
@@ -367,7 +462,7 @@
     getAPI(context) {
       return {
         HeaderColumns: {
-          registerColumn(id, label, tooltip, parseTree, sortNumeric) {
+          registerColumn(id, label, tooltip, parseTree, options) {
             manager.onRegisterColumn(...arguments);
           },
           unregisterColumn(id) {
